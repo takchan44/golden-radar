@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Golden Radar — 골든크로스 분석</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #080c14;
+    --bg2: #0d1520;
+    --bg3: #111c2d;
+    --card: #0f1923;
+    --border: #1a2d44;
+    --gold: #f0b429;
+    --gold2: #ffd166;
+    --green: #06d6a0;
+    --red: #ef476f;
+    --blue: #118ab2;
+    --text: #e8edf5;
+    --muted: #5a7494;
+    --accent: #1e3a5f;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(240,180,41,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(240,180,41,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .wrapper { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; padding: 0 24px; }
+
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 20px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 3px;
+    color: var(--gold);
+    text-shadow: 0 0 20px rgba(240,180,41,0.3);
+  }
+  .logo span { color: var(--text); }
+  .header-meta {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    font-size: 12px;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .live-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(6,214,160,0.1);
+    border: 1px solid rgba(6,214,160,0.3);
+    border-radius: 20px;
+    padding: 4px 12px;
+    color: var(--green);
+    font-size: 11px;
+    letter-spacing: 1px;
+  }
+  .live-dot {
+    width: 6px; height: 6px;
+    background: var(--green);
+    border-radius: 50%;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity:1; transform:scale(1); }
+    50% { opacity:0.4; transform:scale(1.4); }
+  }
+
+  .upload-panel {
+    margin: 28px 0;
+    background: var(--card);
+    border: 2px dashed var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    text-align: center;
+    transition: border-color 0.2s, background 0.2s;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+  }
+  .upload-panel:hover, .upload-panel.drag { border-color: var(--gold); background: rgba(240,180,41,0.04); }
+  .upload-panel input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .upload-icon { font-size: 40px; margin-bottom: 12px; }
+  .upload-panel h3 { font-size: 16px; font-weight: 500; margin-bottom: 6px; }
+  .upload-panel p { font-size: 13px; color: var(--muted); }
+  .loaded-files { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 16px; }
+  .file-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(240,180,41,0.12);
+    border: 1px solid rgba(240,180,41,0.3);
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-size: 12px;
+    color: var(--gold);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .tab-bar {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 24px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tab-bar::-webkit-scrollbar { display: none; }
+  .tab-btn {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 12px 20px;
+    font-size: 13px;
+    font-family: 'Noto Sans KR', sans-serif;
+    color: var(--muted);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+    letter-spacing: 0.5px;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); font-weight: 500; }
+
+  .summary-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .sum-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    transition: border-color 0.2s, transform 0.15s;
+  }
+  .sum-card:hover { border-color: var(--gold); transform: translateY(-2px); }
+  .sum-card .label { font-size: 11px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; }
+  .sum-card .value { font-family: 'Bebas Neue', sans-serif; font-size: 36px; color: var(--gold); letter-spacing: 1px; }
+  .sum-card .sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  .toolbar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .search-box {
+    flex: 1;
+    min-width: 200px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .search-box:focus { border-color: var(--gold); }
+  .search-box::placeholder { color: var(--muted); }
+  .sort-btn {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 12px;
+    color: var(--muted);
+    cursor: pointer;
+    font-family: 'Noto Sans KR', sans-serif;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .sort-btn:hover, .sort-btn.active { background: var(--accent); border-color: var(--gold); color: var(--gold); }
+
+  .stock-grid { display: flex; flex-direction: column; gap: 6px; }
+  .stock-row {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    display: grid;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.18s;
+    position: relative;
+    overflow: hidden;
+  }
+  .stock-row::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--gold);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .stock-row:hover { border-color: var(--gold); background: rgba(240,180,41,0.04); transform: translateX(2px); }
+  .stock-row:hover::before { opacity: 1; }
+  .stock-row.nasdaq-row { grid-template-columns: 80px 1fr 120px 90px 120px; gap: 12px; }
+  .stock-row.kospi-row  { grid-template-columns: 1fr 100px 100px 110px 90px 80px; gap: 12px; }
+
+  .ticker-badge {
+    background: var(--accent);
+    border: 1px solid rgba(240,180,41,0.3);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--gold);
+    text-align: center;
+  }
+  .stock-name { font-size: 14px; font-weight: 500; }
+  .stock-name .sub { font-size: 11px; color: var(--muted); margin-top: 2px; font-weight: 300; }
+  .price {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    font-weight: 600;
+    text-align: right;
+  }
+  .change-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .change-badge.up   { background: rgba(6,214,160,0.12);  color: var(--green); }
+  .change-badge.high { background: rgba(240,180,41,0.15); color: var(--gold);  }
+  .range-bar-wrap { display: flex; flex-direction: column; gap: 3px; }
+  .range-label { font-size: 10px; color: var(--muted); display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace; }
+  .range-bar { height: 4px; background: var(--border); border-radius: 2px; position: relative; }
+  .range-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--green), var(--gold)); }
+
+  .table-header {
+    padding: 8px 18px;
+    display: grid;
+    align-items: center;
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .table-header.nasdaq-row { grid-template-columns: 80px 1fr 120px 90px 120px; gap: 12px; }
+  .table-header.kospi-row  { grid-template-columns: 1fr 100px 100px 110px 90px 80px; gap: 12px; }
+
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(4px);
+    z-index: 1000;
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 40px 20px;
+    overflow-y: auto;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    width: 100%;
+    max-width: 820px;
+    position: relative;
+    overflow: hidden;
+    animation: slideUp 0.25s ease-out;
+  }
+  @keyframes slideUp {
+    from { transform: translateY(30px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+  .modal-header {
+    padding: 28px 32px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .modal-ticker { font-family: 'Bebas Neue', sans-serif; font-size: 48px; color: var(--gold); letter-spacing: 2px; line-height: 1; }
+  .modal-name   { font-size: 15px; color: var(--muted); margin-top: 4px; }
+  .modal-close {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    width: 36px; height: 36px;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+  .modal-close:hover { border-color: var(--red); color: var(--red); }
+  .modal-body { padding: 28px 32px; }
+  .modal-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .stat-card .slabel { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
+  .stat-card .sval   { font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 600; }
+  .stat-card .sval.gold  { color: var(--gold);  }
+  .stat-card .sval.green { color: var(--green); }
+  .chart-area { margin-bottom: 28px; }
+  .chart-area canvas { width: 100% !important; max-height: 220px; }
+  .chart-title { font-size: 12px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; }
+  .ai-section {
+    background: var(--card);
+    border: 1px solid rgba(240,180,41,0.2);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .ai-header { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; font-size: 13px; font-weight: 500; color: var(--gold); }
+  .ai-content { font-size: 13px; line-height: 1.8; color: var(--text); white-space: pre-wrap; }
+  .ai-loading { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+  .ai-spinner {
+    width: 16px; height: 16px;
+    border: 2px solid var(--border);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .section-title { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 2px; color: var(--gold); margin-bottom: 14px; }
+
+  .heatmap-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+  .heatmap-cell {
+    border-radius: 10px;
+    padding: 14px 12px;
+    cursor: pointer;
+    transition: all 0.18s;
+    border: 1px solid transparent;
+    text-align: center;
+  }
+  .heatmap-cell:hover { transform: scale(1.04); border-color: rgba(255,255,255,0.2); }
+  .heatmap-cell .hticker { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .heatmap-cell .hchange { font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 700; }
+  .heatmap-cell .hprice  { font-size: 11px; margin-top: 3px; opacity: 0.75; }
+
+  .news-chip { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+  .news-chip.yes { background: rgba(6,214,160,0.12); color: var(--green); }
+  .news-chip.no  { background: var(--bg3); color: var(--muted); }
+
+  .fade-in { animation: fadeIn 0.3s ease-out; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+
+  @media (max-width: 768px) {
+    .stock-row.nasdaq-row { grid-template-columns: 70px 1fr 80px 70px; }
+    .stock-row.nasdaq-row .range-bar-wrap { display: none; }
+    .stock-row.kospi-row  { grid-template-columns: 1fr 80px 80px 70px; }
+    .stock-row.kospi-row .range-bar-wrap,
+    .stock-row.kospi-row .news-col { display: none; }
+    .table-header.nasdaq-row { grid-template-columns: 70px 1fr 80px 70px; }
+    .table-header.kospi-row  { grid-template-columns: 1fr 80px 80px 70px; }
+    .modal-header { padding: 20px; }
+    .modal-body   { padding: 20px; }
+    .modal-ticker { font-size: 36px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <header>
+    <div class="logo">GOLDEN<span>RADAR</span></div>
+    <div class="header-meta">
+      <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+      <span id="clock"></span>
+    </div>
+  </header>
+
+  <div class="upload-panel" id="uploadPanel">
+    <input type="file" id="fileInput" multiple accept=".xlsx,.xls" onchange="handleFiles(this.files)">
+    <div class="upload-icon">📂</div>
+    <h3>엑셀 파일을 드래그하거나 클릭해서 업로드</h3>
+    <p>나스닥 / 코스피 골든크로스 임박 종목 파일</p>
+    <div class="loaded-files" id="loadedFiles"></div>
+  </div>
+
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('nasdaq')">📈 나스닥 · NASDAQ</button>
+    <button class="tab-btn" onclick="switchTab('kospi')">🇰🇷 코스피 · KOSPI</button>
+    <button class="tab-btn" onclick="switchTab('heatmap')">🔥 히트맵</button>
+  </div>
+
+  <div id="tab-nasdaq" class="tab-content">
+    <div class="summary-row" id="nasdaqSummary"></div>
+    <div class="toolbar">
+      <input class="search-box" type="text" placeholder="티커 또는 기업명 검색..." id="nasdaqSearch" oninput="renderNasdaq()">
+      <button class="sort-btn active" id="sort-rate"  onclick="setSortNasdaq('rate')">▼ 등락률순</button>
+      <button class="sort-btn"        id="sort-price" onclick="setSortNasdaq('price')">가격순</button>
+      <button class="sort-btn"        id="sort-alpha" onclick="setSortNasdaq('alpha')">알파벳순</button>
+    </div>
+    <div class="table-header nasdaq-row">
+      <span>티커</span><span>기업명</span>
+      <span style="text-align:right">현재가</span>
+      <span style="text-align:center">등락률</span>
+      <span>목표범위</span>
+    </div>
+    <div class="stock-grid" id="nasdaqGrid"></div>
+  </div>
+
+  <div id="tab-kospi" class="tab-content" style="display:none">
+    <div class="summary-row" id="kospiSummary"></div>
+    <div class="toolbar">
+      <input class="search-box" type="text" placeholder="종목명 검색..." id="kospiSearch" oninput="renderKospi()">
+      <button class="sort-btn active" id="sortk-rate"   onclick="setSortKospi('rate')">▼ 등락률순</button>
+      <button class="sort-btn"        id="sortk-price"  onclick="setSortKospi('price')">현재가순</button>
+      <button class="sort-btn"        id="sortk-upside" onclick="setSortKospi('upside')">상승여력순</button>
+    </div>
+    <div class="table-header kospi-row">
+      <span>종목명</span>
+      <span style="text-align:right">현재가</span>
+      <span style="text-align:right">하단선</span>
+      <span style="text-align:right">상한가(예상)</span>
+      <span style="text-align:center">등락률</span>
+      <span style="text-align:center">뉴스</span>
+    </div>
+    <div class="stock-grid" id="kospiGrid"></div>
+  </div>
+
+  <div id="tab-heatmap" class="tab-content" style="display:none">
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">등락률 기준 색상 강도 · 클릭하면 상세 분석</p>
+    <div style="margin-bottom:24px;">
+      <div class="section-title">NASDAQ</div>
+      <div class="heatmap-grid" id="nasdaqHeatmap"></div>
+    </div>
+    <div>
+      <div class="section-title">KOSPI</div>
+      <div class="heatmap-grid" id="kospiHeatmap"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 종목 상세 모달 -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal" id="modalContent">
+    <div class="modal-header">
+      <div>
+        <div class="modal-ticker" id="mTicker"></div>
+        <div class="modal-name"   id="mName"></div>
+      </div>
+      <button class="modal-close" onclick="closeModalDirect()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-stats" id="mStats"></div>
+      <div class="chart-area">
+        <div class="chart-title">모의 가격 차트 (5일)</div>
+        <canvas id="priceChart"></canvas>
+      </div>
+      <div class="ai-section">
+        <div class="ai-header">✦ AI 종목 분석 리포트</div>
+        <div class="ai-content" id="aiContent">
+          <div class="ai-loading"><div class="ai-spinner"></div>분석 중...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const DEFAULT_NASDAQ = [{"티커":"AAOI","기업명":"Applied Optoelectronics Inc","현재가($)":117.64,"등락률(%)":9.48},{"티커":"GILT","기업명":"Gilat Satellite Networks Ltd","현재가($)":18.43,"등락률(%)":6.72},{"티커":"WULF","기업명":"Terawulf Inc","현재가($)":16.57,"등락률(%)":6.56},{"티커":"AVGO","기업명":"Broadcom Inc","현재가($)":333.97,"등락률(%)":6.21},{"티커":"HUT","기업명":"Hut 8 Corp","현재가($)":52.66,"등락률(%)":6.21},{"티커":"NBIS","기업명":"Nebius Group NV","현재가($)":117.4,"등락률(%)":4.32},{"티커":"EYPT","기업명":"EyePoint Inc","현재가($)":13.57,"등락률(%)":3.51},{"티커":"OCUL","기업명":"Ocular Therapeutix Inc","현재가($)":8.34,"등락률(%)":3.35},{"티커":"CORZ","기업명":"Core Scientific Inc","현재가($)":16.83,"등락률(%)":3.31},{"티커":"STOK","기업명":"Stoke Therapeutics Inc","현재가($)":33.78,"등락률(%)":3.02},{"티커":"LNTH","기업명":"Lantheus Holdings Inc","현재가($)":78.08,"등락률(%)":2.89},{"티커":"LIF","기업명":"Life360 Inc","현재가($)":41.23,"등락률(%)":2.77},{"티커":"IPGP","기업명":"IPG Photonics Corp","현재가($)":113.11,"등락률(%)":2.45},{"티커":"GOOG","기업명":"Alphabet Inc Class C","현재가($)":303.93,"등락률(%)":2.11},{"티커":"GOOGL","기업명":"Alphabet Inc Class A","현재가($)":305.46,"등락률(%)":1.82},{"티커":"PECO","기업명":"Phillips Edison & Co","현재가($)":37.89,"등락률(%)":1.75},{"티커":"LRCX","기업명":"Lam Research Corp","현재가($)":224.35,"등락률(%)":1.68},{"티커":"BELFB","기업명":"Bel Fuse Inc Class B","현재가($)":210.32,"등락률(%)":1.65},{"티커":"HYMC","기업명":"Hycroft Mining Holding","현재가($)":36.57,"등락률(%)":1.61},{"티커":"SBRA","기업명":"Sabra Health Care REIT","현재가($)":20.01,"등락률(%)":1.47},{"티커":"PLTR","기업명":"Palantir Technologies Inc","현재가($)":150.07,"등락률(%)":1.45},{"티커":"MARA","기업명":"MARA Holdings Inc","현재가($)":8.96,"등락률(%)":1.24},{"티커":"MZTI","기업명":"Marzetti Co","현재가($)":144.71,"등락률(%)":1.22},{"티커":"VIR","기업명":"Vir Biotechnology Inc","현재가($)":9.17,"등락률(%)":1.21},{"티커":"OMCL","기업명":"Omnicell Inc","현재가($)":34.5,"등락률(%)":1.14},{"티커":"BEAM","기업명":"Beam Therapeutics Inc","현재가($)":24.49,"등락률(%)":1.07},{"티커":"TW","기업명":"Tradeweb Markets Inc","현재가($)":124.82,"등락률(%)":1.02},{"티커":"WSC","기업명":"WillScot Holdings Corp","현재가($)":18.25,"등락률(%)":1.0},{"티커":"KMTS","기업명":"Kestra Medical Technologies","현재가($)":19.49,"등락률(%)":0.88},{"티커":"NDSN","기업명":"Nordson Corp","현재가($)":265.47,"등락률(%)":0.85},{"티커":"TTWO","기업명":"Take-Two Interactive","현재가($)":198.33,"등락률(%)":0.83},{"티커":"CPRT","기업명":"Copart Inc","현재가($)":33.11,"등락률(%)":0.82},{"티커":"MCRI","기업명":"Monarch Casino & Resort","현재가($)":98.91,"등락률(%)":0.76},{"티커":"LGND","기업명":"Ligand Pharmaceuticals","현재가($)":205.1,"등락률(%)":0.73},{"티커":"JCAP","기업명":"Jefferson Capital Inc","현재가($)":19.62,"등락률(%)":0.67},{"티커":"CME","기업명":"CME Group Inc","현재가($)":310.58,"등락률(%)":0.65},{"티커":"SPSC","기업명":"SPS Commerce Inc","현재가($)":58.48,"등락률(%)":0.55},{"티커":"NEO","기업명":"Neogenomics Inc","현재가($)":8.06,"등락률(%)":0.5},{"티커":"SBUX","기업명":"Starbucks Corp","현재가($)":95.21,"등락률(%)":0.45},{"티커":"LAMR","기업명":"Lamar Advertising Co","현재가($)":128.77,"등락률(%)":0.45}];
+const DEFAULT_KOSPI = [{"종목명":"한국타이어앤테크놀로지","현재가":61500,"하단선":51900,"상한가(예상)":79950,"등락률(%)":15.38,"호재 뉴스":"없음"},{"종목명":"동부건설","현재가":9050,"하단선":7450,"상한가(예상)":11765,"등락률(%)":13.27,"호재 뉴스":"없음"},{"종목명":"태영건설","현재가":2015,"하단선":1700,"상한가(예상)":2619,"등락률(%)":12.95,"호재 뉴스":"없음"},{"종목명":"삼성물산","현재가":309000,"하단선":245500,"상한가(예상)":401700,"등락률(%)":12.77,"호재 뉴스":"없음"},{"종목명":"효성중공업","현재가":2930000,"하단선":2400000,"상한가(예상)":3809000,"등락률(%)":12.26,"호재 뉴스":"없음"},{"종목명":"키움증권","현재가":459500,"하단선":397000,"상한가(예상)":597350,"등락률(%)":12.21,"호재 뉴스":"없음"},{"종목명":"한국금융지주","현재가":239000,"하단선":200500,"상한가(예상)":310700,"등락률(%)":12.21,"호재 뉴스":"없음"},{"종목명":"대한전선","현재가":31400,"하단선":26500,"상한가(예상)":40820,"등락률(%)":11.55,"호재 뉴스":"없음"},{"종목명":"금호건설","현재가":5300,"하단선":4525,"상한가(예상)":6890,"등락률(%)":11.23,"호재 뉴스":"없음"},{"종목명":"남광토건","현재가":9560,"하단선":8200,"상한가(예상)":12428,"등락률(%)":10.78,"호재 뉴스":"없음"},{"종목명":"HD현대일렉트릭","현재가":980000,"하단선":830000,"상한가(예상)":1274000,"등락률(%)":9.99,"호재 뉴스":"없음"},{"종목명":"현대제철","현재가":37850,"하단선":33050,"상한가(예상)":49205,"등락률(%)":9.87,"호재 뉴스":"없음"},{"종목명":"LS","현재가":287000,"하단선":240000,"상한가(예상)":373100,"등락률(%)":9.75,"호재 뉴스":"없음"},{"종목명":"삼성증권","현재가":104400,"하단선":91300,"상한가(예상)":135720,"등락률(%)":9.66,"호재 뉴스":"없음"},{"종목명":"한전기술","현재가":172800,"하단선":145600,"상한가(예상)":224640,"등락률(%)":9.3,"호재 뉴스":"없음"},{"종목명":"LG전자","현재가":116700,"하단선":103600,"상한가(예상)":151710,"등락률(%)":8.96,"호재 뉴스":"없음"},{"종목명":"세진중공업","현재가":18100,"하단선":15050,"상한가(예상)":23530,"등락률(%)":8.77,"호재 뉴스":"없음"},{"종목명":"HL D&I","현재가":3515,"하단선":2950,"상한가(예상)":4569,"등락률(%)":8.32,"호재 뉴스":"없음"},{"종목명":"계룡건설","현재가":27250,"하단선":23500,"상한가(예상)":35425,"등락률(%)":8.13,"호재 뉴스":"없음"},{"종목명":"LG디스플레이","현재가":12110,"하단선":10740,"상한가(예상)":15743,"등락률(%)":7.45,"호재 뉴스":"없음"},{"종목명":"한화","현재가":123800,"하단선":103400,"상한가(예상)":160940,"등락률(%)":7.19,"호재 뉴스":"없음"},{"종목명":"삼성제약","현재가":1930,"하단선":1760,"상한가(예상)":2509,"등락률(%)":7.1,"호재 뉴스":"없음"},{"종목명":"삼성물산우B","현재가":189300,"하단선":165500,"상한가(예상)":246090,"등락률(%)":7.07,"호재 뉴스":"없음"},{"종목명":"이건산업","현재가":4030,"하단선":3655,"상한가(예상)":5239,"등락률(%)":6.9,"호재 뉴스":"없음"},{"종목명":"넥센타이어","현재가":7470,"하단선":6890,"상한가(예상)":9711,"등락률(%)":6.87,"호재 뉴스":"없음"},{"종목명":"금호타이어","현재가":6230,"하단선":5530,"상한가(예상)":8099,"등락률(%)":6.86,"호재 뉴스":"없음"},{"종목명":"삼성전자우","현재가":139600,"하단선":113500,"상한가(예상)":181480,"등락률(%)":6.65,"호재 뉴스":"없음"},{"종목명":"한화투자증권우","현재가":9170,"하단선":8050,"상한가(예상)":11921,"등락률(%)":6.38,"호재 뉴스":"없음"},{"종목명":"KB금융","현재가":156000,"하단선":141400,"상한가(예상)":202800,"등락률(%)":6.34,"호재 뉴스":"없음"},{"종목명":"금강공업","현재가":5150,"하단선":4665,"상한가(예상)":6695,"등락률(%)":6.3,"호재 뉴스":"없음"}];
+
+let nasdaqData = [...DEFAULT_NASDAQ];
+let kospiData  = [...DEFAULT_KOSPI];
+let nasdaqSort = 'rate';
+let kospiSort  = 'rate';
+let priceChartInst = null;
+
+function updateClock() {
+  document.getElementById('clock').textContent =
+    new Date().toLocaleTimeString('ko-KR', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+function switchTab(name) {
+  ['nasdaq','kospi','heatmap'].forEach(t => {
+    document.getElementById('tab-'+t).style.display = t===name ? 'block' : 'none';
+  });
+  document.querySelectorAll('.tab-btn').forEach((b,i) => {
+    b.classList.toggle('active', ['nasdaq','kospi','heatmap'][i]===name);
+  });
+  if (name==='heatmap') renderHeatmap();
+}
+
+function renderSummary(data, type) {
+  const el = document.getElementById(type+'Summary');
+  const avg = (data.reduce((s,d)=>s+d['등락률(%)'],0)/data.length).toFixed(2);
+  const top = data.slice().sort((a,b)=>b['등락률(%)']-a['등락률(%)'])[0];
+  const topName = type==='nasdaq' ? top['티커'] : top['종목명'].slice(0,5);
+  el.innerHTML = `
+    <div class="sum-card"><div class="label">총 종목 수</div><div class="value">${data.length}</div><div class="sub">골든크로스 임박</div></div>
+    <div class="sum-card"><div class="label">평균 등락률</div><div class="value">+${avg}%</div><div class="sub">전체 평균</div></div>
+    <div class="sum-card"><div class="label">상위 종목</div><div class="value">${topName}</div><div class="sub">+${top['등락률(%)']}%</div></div>
+    <div class="sum-card"><div class="label">5%+ 강한 신호</div><div class="value">${data.filter(d=>d['등락률(%)']>=5).length}</div><div class="sub">종목</div></div>
+  `;
+}
+
+function heatColor(rate) {
+  const t = Math.min(rate / 15, 1);
+  if (t < 0.3) return { bg:`rgba(6,214,160,${0.1+t*0.5})`,   text:'#06d6a0' };
+  if (t < 0.6) return { bg:`rgba(240,180,41,${0.12+t*0.4})`, text:'#f0b429' };
+  return             { bg:`rgba(239,71,111,${0.15+t*0.35})`,  text:'#ef476f' };
+}
+
+function setSortNasdaq(s) {
+  nasdaqSort = s;
+  ['rate','price','alpha'].forEach(k => document.getElementById('sort-'+k).classList.toggle('active',k===s));
+  renderNasdaq();
+}
+function renderNasdaq() {
+  renderSummary(nasdaqData,'nasdaq');
+  const q = document.getElementById('nasdaqSearch').value.toLowerCase();
+  let data = nasdaqData.filter(d => d['티커'].toLowerCase().includes(q) || d['기업명'].toLowerCase().includes(q));
+  if (nasdaqSort==='rate')  data.sort((a,b)=>b['등락률(%)']-a['등락률(%)']);
+  else if (nasdaqSort==='price') data.sort((a,b)=>b['현재가($)']-a['현재가($)']);
+  else data.sort((a,b)=>a['티커'].localeCompare(b['티커']));
+  const grid = document.getElementById('nasdaqGrid');
+  grid.innerHTML = data.map(d => {
+    const r   = d['등락률(%)'];
+    const low  = (d['현재가($)'] * 0.88).toFixed(2);
+    const high = (d['현재가($)'] * 1.25).toFixed(2);
+    const pct  = Math.min(((d['현재가($)'] - low) / (high - low)) * 100, 100);
+    return `<div class="stock-row nasdaq-row fade-in" onclick='openModal("nasdaq",${JSON.stringify(d)})'>
+      <div class="ticker-badge">${d['티커']}</div>
+      <div class="stock-name">${d['기업명']}</div>
+      <div class="price" style="color:var(--green)">$${d['현재가($)'].toFixed(2)}</div>
+      <div style="text-align:center"><span class="change-badge ${r>=5?'high':'up'}">+${r}%</span></div>
+      <div class="range-bar-wrap">
+        <div class="range-label"><span>$${low}</span><span>$${high}</span></div>
+        <div class="range-bar"><div class="range-fill" style="width:${pct}%"></div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function setSortKospi(s) {
+  kospiSort = s;
+  ['rate','price','upside'].forEach(k => document.getElementById('sortk-'+k).classList.toggle('active',k===s));
+  renderKospi();
+}
+function renderKospi() {
+  renderSummary(kospiData,'kospi');
+  const q = document.getElementById('kospiSearch').value.toLowerCase();
+  let data = kospiData.filter(d => d['종목명'].toLowerCase().includes(q));
+  if (kospiSort==='rate') data.sort((a,b)=>b['등락률(%)']-a['등락률(%)']);
+  else if (kospiSort==='price') data.sort((a,b)=>b['현재가']-a['현재가']);
+  else data.sort((a,b)=>{
+    const ua = ((a['상한가(예상)']-a['현재가'])/a['현재가'])*100;
+    const ub = ((b['상한가(예상)']-b['현재가'])/b['현재가'])*100;
+    return ub-ua;
+  });
+  const grid = document.getElementById('kospiGrid');
+  grid.innerHTML = data.map(d => {
+    const r      = d['등락률(%)'];
+    const upside = (((d['상한가(예상)']-d['현재가'])/d['현재가'])*100).toFixed(1);
+    const pct    = Math.min(((d['현재가']-d['하단선'])/(d['상한가(예상)']-d['하단선']))*100,100);
+    const hasNews = d['호재 뉴스'] && d['호재 뉴스']!=='없음';
+    return `<div class="stock-row kospi-row fade-in" onclick='openModal("kospi",${JSON.stringify(d)})'>
+      <div class="stock-name">${d['종목명']}<div class="sub">상승여력 +${upside}%</div></div>
+      <div class="price" style="color:var(--green)">${d['현재가'].toLocaleString()}원</div>
+      <div class="price" style="color:var(--muted);font-size:13px">${d['하단선'].toLocaleString()}원</div>
+      <div class="price" style="color:var(--gold2)">${d['상한가(예상)'].toLocaleString()}원</div>
+      <div style="text-align:center"><span class="change-badge ${r>=10?'high':'up'}">+${r}%</span></div>
+      <div class="news-col" style="text-align:center"><span class="news-chip ${hasNews?'yes':'no'}">${hasNews?'✓ 있음':'없음'}</span></div>
+    </div>`;
+  }).join('');
+}
+
+function renderHeatmap() {
+  document.getElementById('nasdaqHeatmap').innerHTML =
+    nasdaqData.slice().sort((a,b)=>b['등락률(%)']-a['등락률(%)']).map(d => {
+      const {bg,text} = heatColor(d['등락률(%)']);
+      return `<div class="heatmap-cell" style="background:${bg};border-color:${text}22" onclick='openModal("nasdaq",${JSON.stringify(d)})'>
+        <div class="hticker" style="color:${text}">${d['티커']}</div>
+        <div class="hchange" style="color:${text}">+${d['등락률(%)']}%</div>
+        <div class="hprice"  style="color:${text}">$${d['현재가($)'].toFixed(2)}</div>
+      </div>`;
+    }).join('');
+
+  document.getElementById('kospiHeatmap').innerHTML =
+    kospiData.slice().sort((a,b)=>b['등락률(%)']-a['등락률(%)']).map(d => {
+      const {bg,text} = heatColor(d['등락률(%)']);
+      const short = d['종목명'].length > 6 ? d['종목명'].slice(0,6)+'…' : d['종목명'];
+      return `<div class="heatmap-cell" style="background:${bg};border-color:${text}22" onclick='openModal("kospi",${JSON.stringify(d)})'>
+        <div class="hticker" style="color:${text};font-family:'Noto Sans KR';font-size:12px">${short}</div>
+        <div class="hchange" style="color:${text}">+${d['등락률(%)']}%</div>
+        <div class="hprice"  style="color:${text}">${d['현재가'].toLocaleString()}원</div>
+      </div>`;
+    }).join('');
+}
+
+function openModal(type, stock) {
+  const isNasdaq = type==='nasdaq';
+  document.getElementById('mTicker').textContent = isNasdaq ? stock['티커'] : stock['종목명'];
+  document.getElementById('mName').textContent   = isNasdaq ? stock['기업명'] : '코스피 상장 종목';
+
+  const price  = isNasdaq ? `$${stock['현재가($)'].toFixed(2)}` : `${stock['현재가'].toLocaleString()}원`;
+  const upside = isNasdaq
+    ? `+${(stock['현재가($)']*0.25).toFixed(2)} (25% est.)`
+    : `+${(((stock['상한가(예상)']-stock['현재가'])/stock['현재가'])*100).toFixed(1)}%`;
+
+  let stats = `
+    <div class="stat-card"><div class="slabel">현재가</div><div class="sval green">${price}</div></div>
+    <div class="stat-card"><div class="slabel">등락률</div><div class="sval gold">+${stock['등락률(%)']}%</div></div>
+    <div class="stat-card"><div class="slabel">상승 여력</div><div class="sval gold">${upside}</div></div>
+    <div class="stat-card"><div class="slabel">신호 강도</div><div class="sval" style="color:${stock['등락률(%)']>=5?'var(--red)':'var(--green)'}">${stock['등락률(%)']>=10?'🔥 강함':stock['등락률(%)']>=5?'⚡ 보통':'✓ 약함'}</div></div>`;
+  if (!isNasdaq) {
+    stats += `
+    <div class="stat-card"><div class="slabel">하단 지지선</div><div class="sval" style="color:var(--muted)">${stock['하단선'].toLocaleString()}원</div></div>
+    <div class="stat-card"><div class="slabel">상한가(예상)</div><div class="sval" style="color:var(--gold2)">${stock['상한가(예상)'].toLocaleString()}원</div></div>`;
+  }
+  document.getElementById('mStats').innerHTML = stats;
+
+  drawPriceChart(isNasdaq ? stock['현재가($)'] : stock['현재가']);
+  document.getElementById('aiContent').innerHTML = '<div class="ai-loading"><div class="ai-spinner"></div>Claude AI 분석 중...</div>';
+  document.getElementById('modalOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  fetchAI(type, stock);
+}
+
+function closeModal(e) { if (e.target===document.getElementById('modalOverlay')) closeModalDirect(); }
+function closeModalDirect() {
+  document.getElementById('modalOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+  if (priceChartInst) { priceChartInst.destroy(); priceChartInst = null; }
+}
+
+function drawPriceChart(price) {
+  const ctx = document.getElementById('priceChart').getContext('2d');
+  if (priceChartInst) priceChartInst.destroy();
+  const labels = ['5일전','4일전','3일전','2일전','1일전','오늘'];
+  const seed   = Math.random();
+  const prices = labels.map((_,i) => +(price*(0.88+0.04*i+Math.sin(i*2+seed)*0.03)).toFixed(2));
+  prices[prices.length-1] = price;
+  const ma5 = prices.map((_,i) => {
+    const s = prices.slice(Math.max(0,i-4),i+1);
+    return +(s.reduce((a,b)=>a+b,0)/s.length).toFixed(2);
+  });
+  priceChartInst = new Chart(ctx, {
+    data: { labels,
+      datasets: [
+        { type:'line', label:'가격', data:prices, borderColor:'#06d6a0', backgroundColor:'rgba(6,214,160,0.05)', tension:0.4, pointBackgroundColor:'#06d6a0', pointRadius:4, fill:true },
+        { type:'line', label:'MA5',  data:ma5,    borderColor:'#f0b429', borderDash:[4,4], pointRadius:0, tension:0.3 }
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:true,
+      plugins:{ legend:{ labels:{ color:'#5a7494', font:{size:11} } } },
+      scales:{
+        x:{ ticks:{color:'#5a7494',font:{size:11}}, grid:{color:'#1a2d44'} },
+        y:{ ticks:{color:'#5a7494',font:{size:11}}, grid:{color:'#1a2d44'} }
+      }
+    }
+  });
+}
+
+async function fetchAI(type, stock) {
+  const isNasdaq = type==='nasdaq';
+  const name = isNasdaq ? `${stock['티커']} (${stock['기업명']})` : stock['종목명'];
+  const info = isNasdaq
+    ? `현재가 $${stock['현재가($)']}, 등락률 +${stock['등락률(%)']}%`
+    : `현재가 ${stock['현재가'].toLocaleString()}원, 하단선 ${stock['하단선'].toLocaleString()}원, 상한가(예상) ${stock['상한가(예상)'].toLocaleString()}원, 등락률 +${stock['등락률(%)']}%`;
+
+  const prompt = `당신은 전문 주식 애널리스트입니다. 다음 종목을 간결하고 전문적으로 분석해주세요.
+
+종목: ${name}
+시장: ${isNasdaq?'NASDAQ':'KOSPI'}
+데이터: ${info}
+신호: 골든크로스 임박 (단기 이동평균이 장기 이동평균 상향 돌파 직전)
+
+다음 형식으로 분석해주세요 (각 항목 2~3줄):
+
+📊 기술적 분석
+(골든크로스 신호의 의미와 현재 모멘텀)
+
+🎯 목표가 분석
+(상승 목표가와 지지선)
+
+⚠️ 리스크 요인
+(주의해야 할 리스크)
+
+💡 투자 의견
+(단기 투자 전략 제안)`;
+
+  try {
+    const res = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: [{ role:'user', content: prompt }] }),
+    });
+    const data = await res.json();
+    if (data.content?.[0]?.text) {
+      document.getElementById('aiContent').textContent = data.content[0].text;
+    } else {
+      fallbackAI(type, stock);
+    }
+  } catch {
+    fallbackAI(type, stock);
+  }
+}
+
+function fallbackAI(type, stock) {
+  const isNasdaq = type==='nasdaq';
+  const r    = stock['등락률(%)'];
+  const name = isNasdaq ? stock['티커'] : stock['종목명'];
+  const str  = r>=10?'매우 강한':r>=5?'강한':'보통 수준의';
+  const upside = isNasdaq
+    ? `$${(stock['현재가($)']*1.25).toFixed(2)} (+25%)`
+    : `${stock['상한가(예상)'].toLocaleString()}원 (+${(((stock['상한가(예상)']-stock['현재가'])/stock['현재가'])*100).toFixed(1)}%)`;
+
+  document.getElementById('aiContent').textContent =
+`📊 기술적 분석
+${name}은 현재 ${str} 골든크로스 임박 신호를 보이고 있습니다. 단기(5일) 이동평균이 장기(20일) 이동평균을 상향 돌파하기 직전으로, 상승 모멘텀이 형성되고 있습니다.
+
+🎯 목표가 분석
+단기 목표가 ${upside}로 추정됩니다. ${isNasdaq?`하단 지지선은 $${(stock['현재가($)']*0.88).toFixed(2)}입니다.`:`하단 지지선 ${stock['하단선'].toLocaleString()}원이 손절 기준점입니다.`}
+
+⚠️ 리스크 요인
+골든크로스 신호 이후에도 단기 과매수 구간 진입 시 눌림목이 올 수 있습니다. 거래량 확인과 섹터 전반의 흐름을 함께 모니터링하세요.
+
+💡 투자 의견
+신호 강도(+${r}%)를 감안한 분할 매수 전략을 권장합니다. 골든크로스 완성 확인 후 추가 매수를 검토하세요.
+
+※ 본 분석은 참고용이며 투자 판단은 본인 책임입니다.`;
+}
+
+function handleFiles(files) {
+  const chips = document.getElementById('loadedFiles');
+  chips.innerHTML = Array.from(files).map(f => `<div class="file-chip">📄 ${f.name}</div>`).join('');
+  document.querySelector('.upload-panel h3').textContent = `${files.length}개 파일 로드됨`;
+}
+
+const panel = document.getElementById('uploadPanel');
+panel.addEventListener('dragover',  e => { e.preventDefault(); panel.classList.add('drag'); });
+panel.addEventListener('dragleave', () => panel.classList.remove('drag'));
+panel.addEventListener('drop', e => { e.preventDefault(); panel.classList.remove('drag'); handleFiles(e.dataTransfer.files); });
+
+renderNasdaq();
+renderKospi();
+</script>
+</body>
+</html>

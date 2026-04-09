@@ -291,11 +291,11 @@
         <div class="stats-grid" id="mStats"></div>
         <div class="chart-wrap">
           <div class="chart-title">가격 차트 (5일) + MA5</div>
-          <canvas id="priceChart" height="180"></canvas>
+          <div style="position:relative;height:180px"><canvas id="priceChart"></canvas></div>
         </div>
         <div class="chart-wrap">
           <div class="chart-title">거래량</div>
-          <canvas id="volumeChart" height="100"></canvas>
+          <div style="position:relative;height:100px"><canvas id="volumeChart"></canvas></div>
         </div>
       </div>
 
@@ -304,11 +304,11 @@
         <div class="indicator-row" id="mIndicators"></div>
         <div class="chart-wrap">
           <div class="chart-title">볼린저 밴드</div>
-          <canvas id="bbChart" height="180"></canvas>
+          <div style="position:relative;height:180px"><canvas id="bbChart"></canvas></div>
         </div>
         <div class="chart-wrap">
           <div class="chart-title">MACD</div>
-          <canvas id="macdChart" height="120"></canvas>
+          <div style="position:relative;height:120px"><canvas id="macdChart"></canvas></div>
         </div>
       </div>
 
@@ -493,11 +493,11 @@ function openModal(type,stock){
   charts.price=new Chart(pc,{data:{labels,datasets:[
     {type:'line',label:'가격',data:prices,borderColor:'#06d6a0',backgroundColor:'rgba(6,214,160,0.05)',tension:0.4,pointBackgroundColor:'#06d6a0',pointRadius:4,fill:true},
     {type:'line',label:'MA5',data:ma5,borderColor:'#f0b429',borderDash:[4,4],pointRadius:0,tension:0.3}
-  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#5a7494',font:{size:11}}}},scales:{x:{ticks:{color:'#5a7494'},grid:{color:'#1a2d44'}},y:{ticks:{color:'#5a7494'},grid:{color:'#1a2d44'}}}}});
+  ]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{labels:{color:'#5a7494',font:{size:11}}}},scales:{x:{ticks:{color:'#5a7494'},grid:{color:'#1a2d44'}},y:{ticks:{color:'#5a7494'},grid:{color:'#1a2d44'}}}}});
 
   // 거래량 차트
   const vc=document.getElementById('volumeChart').getContext('2d');
-  charts.vol=new Chart(vc,{type:'bar',data:{labels,datasets:[{label:'거래량',data:vols,backgroundColor:'rgba(17,138,178,0.5)',borderColor:'#118ab2',borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#5a7494'},grid:{color:'#1a2d44'}},y:{ticks:{color:'#5a7494',callback:v=>(v/10000).toFixed(0)+'만'},grid:{color:'#1a2d44'}}}}});
+  charts.vol=new Chart(vc,{type:'bar',data:{labels,datasets:[{label:'거래량',data:vols,backgroundColor:'rgba(17,138,178,0.5)',borderColor:'#118ab2',borderWidth:1}]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#5a7494'},grid:{color:'#1a2d44'}},y:{ticks:{color:'#5a7494',callback:v=>(v/10000).toFixed(0)+'만'},grid:{color:'#1a2d44'}}}}});
 
   // 기술적 지표 계산
   const rsi=Math.min(85,Math.max(30,50+r*2.5+seeded(price,0,10)-5));
@@ -547,7 +547,7 @@ function openModal(type,stock){
       {type:'line',label:'상단',data:bbU,borderColor:'rgba(17,138,178,0.5)',borderDash:[3,3],pointRadius:0,fill:false},
       {type:'line',label:'가격',data:prices,borderColor:'#06d6a0',backgroundColor:'rgba(6,214,160,0.05)',tension:0.4,pointRadius:3,fill:false},
       {type:'line',label:'하단',data:bbL,borderColor:'rgba(17,138,178,0.5)',borderDash:[3,3],pointRadius:0,fill:false}
-    ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#5a7494',font:{size:11}}}},scales:{x:{ticks:{color:'#5a7494'},grid:{color:'#1a2d44'}},y:{ticks:{color:'#5a7494'},grid:{color:'#1a2d44'}}}}});
+    ]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{labels:{color:'#5a7494',font:{size:11}}}},scales:{x:{ticks:{color:'#5a7494'},grid:{color:'#1a2d44'}},y:{ticks:{color:'#5a7494'},grid:{color:'#1a2d44'}}}}});
 
     // MACD 차트
     const mc=document.getElementById('macdChart').getContext('2d');
@@ -558,7 +558,7 @@ function openModal(type,stock){
       {type:'bar',label:'히스토그램',data:hist,backgroundColor:hist.map(v=>v>=0?'rgba(6,214,160,0.5)':'rgba(239,71,111,0.5)')},
       {type:'line',label:'MACD',data:macdLine,borderColor:'#f0b429',pointRadius:0,tension:0.3},
       {type:'line',label:'Signal',data:sigLine,borderColor:'#118ab2',pointRadius:0,tension:0.3,borderDash:[3,3]}
-    ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#5a7494',font:{size:11}}}},scales:{x:{ticks:{color:'#5a7494'},grid:{color:'#1a2d44'}},y:{ticks:{color:'#5a7494'},grid:{color:'#1a2d44'}}}}});
+    ]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{labels:{color:'#5a7494',font:{size:11}}}},scales:{x:{ticks:{color:'#5a7494'},grid:{color:'#1a2d44'}},y:{ticks:{color:'#5a7494'},grid:{color:'#1a2d44'}}}}});
   },100);
 
   // 재무제표 (모의)
@@ -601,7 +601,7 @@ function openModal(type,stock){
   const newsTemplates=isN?[
     {t:`${ticker} 골든크로스 기술적 돌파 신호 포착`,s:'pos',src:'Bloomberg',time:'2시간 전'},
     {t:`월가 애널리스트, ${ticker} 목표주가 상향 조정`,s:'pos',src:'Reuters',time:'4시간 전'},
-    {t:`${d['기업명']||ticker} 신제품 발표 예정, 시장 기대감 상승`,s:'pos',src:'MarketWatch',time:'6시간 전'},
+    {t:`${name} 신제품 발표 예정, 시장 기대감 상승`,s:'pos',src:'MarketWatch',time:'6시간 전'},
     {t:`나스닥 전반적 강세... ${ticker} 수혜 예상`,s:'neu',src:'CNBC',time:'8시간 전'},
     {t:`${ticker} 단기 과매수 구간 진입 주의`,s:'neg',src:'Seeking Alpha',time:'12시간 전'},
   ]:[

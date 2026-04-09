@@ -628,7 +628,18 @@ function openModal(type,stock){
   fetchAI(type,{ticker,name,price,r,stock:isN?stock:stock,isN});
 }
 
-function destroyCharts(){Object.values(charts).forEach(c=>{try{c.destroy();}catch(e){}});charts={};}
+function destroyCharts(){
+  Object.values(charts).forEach(c=>{try{c.destroy();}catch(e){}});
+  charts={};
+  ['priceChart','volumeChart','bbChart','macdChart'].forEach(id=>{
+    const old=document.getElementById(id);
+    if(!old) return;
+    const neo=document.createElement('canvas');
+    neo.id=id;
+    neo.height=old.height;
+    old.parentNode.replaceChild(neo,old);
+  });
+}
 
 function closeModal(e){if(e.target===document.getElementById('modalOverlay'))closeModalDirect();}
 function closeModalDirect(){

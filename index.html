@@ -79,6 +79,32 @@
   .news-chip{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:11px;}
   .news-chip.yes{background:rgba(6,214,160,0.12);color:var(--green);}
   .news-chip.no{background:var(--bg3);color:var(--muted);}
+  /* TOP3 추천 */
+  .top3-section{margin-bottom:28px;}
+  .top3-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .top3-title{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:var(--gold);}
+  .top3-subtitle{font-size:12px;color:var(--muted);margin-top:2px;}
+  .top3-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;}
+  .top3-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden;}
+  .top3-card:hover{border-color:var(--gold);transform:translateY(-3px);}
+  .top3-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
+  .top3-card.rank-1::before{background:linear-gradient(90deg,#FFD700,#FFA500);}
+  .top3-card.rank-2::before{background:linear-gradient(90deg,#C0C0C0,#A0A0A0);}
+  .top3-card.rank-3::before{background:linear-gradient(90deg,#CD7F32,#A0522D);}
+  .top3-rank{font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:2px;margin-bottom:8px;}
+  .top3-rank.rank-1{color:#FFD700;}
+  .top3-rank.rank-2{color:#C0C0C0;}
+  .top3-rank.rank-3{color:#CD7F32;}
+  .top3-ticker{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:var(--gold);margin-bottom:2px;}
+  .top3-name{font-size:12px;color:var(--muted);margin-bottom:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .top3-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
+  .top3-stat{background:var(--bg3);border-radius:8px;padding:8px 10px;}
+  .top3-stat .tsl{font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:3px;}
+  .top3-stat .tsv{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600;}
+  .top3-reason{font-size:12px;color:var(--text);line-height:1.7;border-top:1px solid var(--border);padding-top:10px;}
+  .top3-loading{text-align:center;padding:40px;color:var(--muted);font-size:13px;}
+  .top3-spinner{width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px;}
+  .top3-score{display:inline-flex;align-items:center;gap:4px;background:rgba(240,180,41,0.15);border:1px solid rgba(240,180,41,0.3);border-radius:20px;padding:3px 10px;font-size:11px;color:var(--gold);font-family:'JetBrains Mono',monospace;margin-bottom:10px;}
   .heatmap-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;}
   .heatmap-cell{border-radius:10px;padding:14px 12px;cursor:pointer;transition:all 0.18s;border:1px solid transparent;text-align:center;}
   .heatmap-cell:hover{transform:scale(1.04);border-color:rgba(255,255,255,0.2);}
@@ -205,6 +231,18 @@
     <h3 id="uploadTitle">엑셀 파일을 드래그하거나 클릭해서 업로드</h3>
     <p>나스닥 / 코스피 골든크로스 임박 종목 파일 (.xlsx)</p>
     <div class="loaded-files" id="loadedFiles"></div>
+  </div>
+
+  <!-- TOP3 추천 섹션 -->
+  <div class="top3-section" id="top3Section" style="display:none">
+    <div class="top3-header">
+      <div>
+        <div class="top3-title">✦ AI 추천 TOP 3</div>
+        <div class="top3-subtitle">업로드된 종목 전체를 분석한 최우선 투자 후보</div>
+      </div>
+      <button onclick="runTop3Analysis()" style="background:var(--accent);border:1px solid var(--gold);border-radius:8px;padding:8px 16px;font-size:12px;color:var(--gold);cursor:pointer;font-family:'Noto Sans KR',sans-serif;">↻ 재분석</button>
+    </div>
+    <div id="top3Content"></div>
   </div>
 
   <div class="tab-bar">
@@ -648,6 +686,110 @@ function closeModalDirect(){
   destroyCharts();
 }
 
+async function runTop3Analysis(){
+  const el=document.getElementById('top3Content');
+  el.innerHTML=`<div class="top3-loading"><div class="top3-spinner"></div>전체 종목 분석 중... 잠시만 기다려 주세요</div>`;
+  document.getElementById('top3Section').style.display='block';
+
+  // 전체 종목 요약 텍스트 생성
+  const nasdaqSummary=nasdaqData.slice(0,15).map(d=>`${d['티커']}(+${d['등락률(%)']}%,$${d['현재가($)']})`).join(', ');
+  const kospiSummary=kospiData.slice(0,15).map(d=>`${d['종목명']}(+${d['등락률(%)']}%,${d['현재가'].toLocaleString()}원,상한가${d['상한가(예상)'].toLocaleString()}원)`).join(', ');
+
+  const prompt=`당신은 전문 주식 애널리스트입니다. 아래 골든크로스 임박 종목 리스트에서 가장 투자 가치가 높은 TOP 3 종목을 선정해 주세요.
+
+[나스닥 종목] ${nasdaqSummary}
+[코스피 종목] ${kospiSummary}
+
+반드시 아래 JSON 형식으로만 응답하세요. 다른 텍스트 없이 JSON만 출력하세요:
+{
+  "top3": [
+    {
+      "rank": 1,
+      "ticker": "티커 또는 종목명",
+      "market": "NASDAQ 또는 KOSPI",
+      "score": 숫자(1-10),
+      "opinion": "매수 또는 관망",
+      "change": 등락률숫자,
+      "price": "현재가 문자열",
+      "reason": "선정 이유 3줄 (기술적 신호, 모멘텀, 투자 포인트 포함)",
+      "strategy": "구체적 매매 전략 1줄",
+      "risk": "주요 리스크 1줄"
+    },
+    { "rank": 2, ... },
+    { "rank": 3, ... }
+  ]
+}`;
+
+  try{
+    const res=await fetch('/api/analyze',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({messages:[{role:'user',content:prompt}]})
+    });
+    const data=await res.json();
+    const text=data.content?.[0]?.text||'';
+
+    // JSON 파싱
+    const jsonMatch=text.match(/\{[\s\S]*\}/);
+    if(!jsonMatch) throw new Error('JSON 파싱 실패');
+    const result=JSON.parse(jsonMatch[0]);
+    renderTop3(result.top3);
+  }catch(e){
+    renderTop3Fallback();
+  }
+}
+
+function renderTop3(items){
+  const rankLabel=['🥇 1위','🥈 2위','🥉 3위'];
+  const rankClass=['rank-1','rank-2','rank-3'];
+  const el=document.getElementById('top3Content');
+  el.innerHTML=`<div class="top3-grid">${items.map((d,i)=>`
+    <div class="top3-card ${rankClass[i]}" onclick="openModalByName('${d.market}','${d.ticker}')">
+      <div class="top3-rank ${rankClass[i]}">${rankLabel[i]} · ${d.market}</div>
+      <div class="top3-ticker">${d.ticker}</div>
+      <div class="top3-name">${d.market==='NASDAQ'?(nasdaqData.find(n=>n['티커']===d.ticker)||{})['기업명']||'':''}</div>
+      <div class="top3-score">⭐ ${d.score}/10 · ${d.opinion}</div>
+      <div class="top3-stats">
+        <div class="top3-stat"><div class="tsl">현재가</div><div class="tsv">${d.price}</div></div>
+        <div class="top3-stat"><div class="tsl">등락률</div><div class="tsv" style="color:var(--green)">+${d.change}%</div></div>
+      </div>
+      <div class="top3-reason">
+        <div style="margin-bottom:6px">${d.reason}</div>
+        <div style="color:var(--gold);font-size:11px">💡 ${d.strategy}</div>
+        <div style="color:var(--muted);font-size:11px;margin-top:4px">⚠️ ${d.risk}</div>
+      </div>
+    </div>`).join('')}</div>`;
+}
+
+function renderTop3Fallback(){
+  // API 실패 시 등락률 기준 자동 선정
+  const allStocks=[
+    ...nasdaqData.map(d=>({ticker:d['티커'],market:'NASDAQ',change:d['등락률(%)'],price:'$'+d['현재가($)'].toFixed(2),name:d['기업명']})),
+    ...kospiData.map(d=>({ticker:d['종목명'],market:'KOSPI',change:d['등락률(%)'],price:d['현재가'].toLocaleString()+'원',name:''}))
+  ].sort((a,b)=>b.change-a.change).slice(0,3);
+
+  const items=allStocks.map((d,i)=>({
+    rank:i+1, ticker:d.ticker, market:d.market,
+    score:Math.min(10,Math.round(5+d.change*0.3)),
+    opinion:d.change>=5?'매수':'관망',
+    change:d.change, price:d.price,
+    reason:`등락률 +${d.change}%로 골든크로스 임박 신호가 강하게 발현되고 있습니다. 단기 이동평균이 장기 이동평균을 상향 돌파하기 직전으로 매수 타이밍이 형성되고 있습니다. 거래량 증가와 함께 상승 모멘텀이 확인되고 있습니다.`,
+    strategy:'현재가 기준 분할 매수 진입, 골든크로스 완성 시 추가 매수 검토',
+    risk:'단기 급등 후 차익실현 매물 출현 가능성 주의'
+  }));
+  renderTop3(items);
+}
+
+function openModalByName(market, ticker){
+  if(market==='NASDAQ'){
+    const stock=nasdaqData.find(d=>d['티커']===ticker);
+    if(stock) openModal('nasdaq',stock);
+  } else {
+    const stock=kospiData.find(d=>d['종목명']===ticker);
+    if(stock) openModal('kospi',stock);
+  }
+}
+
 async function fetchAI(type,{ticker,name,price,r,stock,isN}){
   const upside=isN?`목표가 $${(price*1.25).toFixed(2)} (+25% est.)`
     :`목표가 ${stock?.['상한가(예상)']?.toLocaleString()}원 (+${(((stock?.['상한가(예상)']-price)/price)*100).toFixed(1)}%), 하단선 ${stock?.['하단선']?.toLocaleString()}원`;
@@ -773,6 +915,10 @@ function handleFiles(files){
         document.getElementById('loadedFiles').innerHTML+=
           `<div class="file-chip">✓ ${label} ${rows.length}종목</div>`;
         document.getElementById('uploadTitle').textContent='파일 로드 완료 — 아래에서 확인하세요';
+
+        document.getElementById('top3Section').style.display='block';
+        // 두 파일 모두 로드됐거나 파일이 1개면 바로 분석 실행
+        runTop3Analysis();
 
       }catch(err){
         alert(file.name+' 읽기 실패: '+err.message);

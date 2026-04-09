@@ -522,7 +522,7 @@ function openModal(type,stock){
       <div class="iname">MACD</div>
       <div class="ival" style="color:${macdVal>0?'var(--green)':'var(--red)'}">+${macdVal}</div>
       <div class="istat" style="color:var(--muted)">Signal: ${signal}</div>
-      <div class="istat" style="color:${macdVal>signal?'var(--green)':'var(--red)';margin-top:4px}">${macdVal>signal?'▲ 골든크로스':'▼ 데드크로스'}</div>
+      <div class="istat" style="color:${macdVal>signal?'var(--green)':'var(--red)'};margin-top:4px">${macdVal>signal?'▲ 골든크로스':'▼ 데드크로스'}</div>
     </div>
     <div class="indicator-card">
       <div class="iname">볼린저밴드</div>
@@ -611,7 +611,6 @@ function openModal(type,stock){
     {t:`${ticker} 52주 신고가 도전 가능성`,s:'neu',src:'이데일리',time:'7시간 전'},
     {t:`단기 급등에 따른 차익실현 매물 주의`,s:'neg',src:'뉴스핌',time:'10시간 전'},
   ];
-  const stock=isN?DEFAULT_NASDAQ.find(d=>d['티커']===ticker):DEFAULT_KOSPI.find(d=>d['종목명']===ticker);
   document.getElementById('mNews').innerHTML=newsTemplates.map(n=>`
     <div class="news-item">
       <div class="ntitle">${n.t}</div>
